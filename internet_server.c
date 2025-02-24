@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
-#include <errno.h>
+#include <arpa/inet.h>
+#include <signal.h>
 
-#define SOCKET_PATH "/tmp/chat_socket"
+#define PORT 8080
 
 void handle_client(int client_fd) {
     char buffer[256];
@@ -36,24 +35,31 @@ void handle_client(int client_fd) {
     exit(0);
 }
 
+void sigchld_handler(int signo) {
+    (void)signo; // Avoid unused parameter warning
+    while (waitpid(-1, NULL, WNOHANG) > 0); // Reap zombie processes
+}
+
 int main() {
     int server_fd, client_fd;
-    struct sockaddr_un server_addr, client_addr;
+    struct sockaddr_in server_addr, client_addr;
     socklen_t client_len;
 
+    // Handle zombie processes
+    signal(SIGCHLD, sigchld_handler);
+
     // Create socket
-    server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
         perror("Socket failed");
         exit(EXIT_FAILURE);
     }
 
-    // Configure socket address
+    // Configure server address
     memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sun_family = AF_UNIX;
-    strcpy(server_addr.sun_path, SOCKET_PATH);
-    
-    unlink(SOCKET_PATH); // Remove existing socket file
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
 
     // Bind socket
     if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
@@ -66,8 +72,8 @@ int main() {
         perror("Listen failed");
         exit(EXIT_FAILURE);
     }
-    
-    printf("Server listening on %s...\n", SOCKET_PATH);
+
+    printf("Server listening on port %d...\n", PORT);
 
     // Accept multiple client connections
     while (1) {
@@ -92,6 +98,5 @@ int main() {
     }
 
     close(server_fd);
-    unlink(SOCKET_PATH);
     return 0;
 }
