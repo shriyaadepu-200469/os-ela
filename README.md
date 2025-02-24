@@ -113,11 +113,6 @@ This project is a simple **client-server chat application** using **Internet dom
 
 ---
 
-## Compilation  
-To compile the server and client programs, run:  
-```sh
-make
-
 ## License
 This project is open-source and available under the **MIT License**.
 
